@@ -1,10 +1,35 @@
-import "./index.css"
+import React, { useContext } from "react";
+import Home from "./Pages/Home";
+import { ThemeContext } from "./context/ThemeContext";
 
+function App() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
 
-export default function App() {
   return (
-    <div className="bg-green-500 text-white p-4">
-      <h1 className="text-4xl font-bold">Test Minimaliste Tailwind</h1>
+    <div
+      className={`min-h-screen relative ${
+        theme === "dark" ? "bg-gray-900 text-white" : "bg-white text-gray-900"
+      }`}
+    >
+      {/* Fond étoilé */}
+      <div className="stars"></div>
+
+      {/* Header */}
+      <header className="p-4 flex justify-between items-center border-b border-gray-300 dark:border-gray-700">
+        <h1 className="text-2xl font-bold">Profile Card App</h1>
+        <button
+          onClick={toggleTheme}
+          className="bg-indigo-500 text-white py-2 px-4 rounded-lg hover:bg-indigo-600 z-10"
+        >
+          {theme === "dark" ? "Mode Clair" : "Mode Sombre"}
+        </button>
+      </header>
+
+      {/* Contenu */}
+      <Home />
     </div>
   );
 }
+
+
+export default App;

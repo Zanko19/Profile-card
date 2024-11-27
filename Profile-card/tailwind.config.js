@@ -1,10 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./src/**/*.{js,jsx,ts,tsx,html}",
-  ],
+  content: ["./src/**/*.{js,jsx,ts,tsx,html}"], // Ajuste le chemin selon ton projet
   theme: {
-    extend: {},
+    extend: {}, // Étend le thème si nécessaire
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+  ],
+  darkMode: 'class',
 };
