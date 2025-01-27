@@ -3,11 +3,13 @@ import ProfileCard from "../components/ProfileCard";
 
 const Home = () => {
   const [isHovered, setIsHovered] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [direction, setDirection] = useState({ dx: 2, dy: 2 });
-  const [size, setSize] = useState(32); // Taille initiale de l'image
-  const [stars, setStars] = useState([]); // Tableau pour stocker les étoiles
+  const [position, setPosition] = useState({ x: window.innerWidth/2, y: window.innerHeight/2 });
+  const [size, setSize] = useState(32);
+  const [stars, setStars] = useState([]);
   const [isExploded, setIsExploded] = useState(false);
+  const [keys, setKeys] = useState({});
+  const [score, setScore] = useState(0);
+  const speed = 5;
   
   const profileData = {
     name: "Guillaume Dedeurwaerder",
@@ -16,103 +18,130 @@ const Home = () => {
     description: "Passionné par le développement web moderne et les interfaces utilisateur innovantes. Spécialisé en React, TailwindCSS et animations web.",
   };
 
-  // Générer des étoiles aléatoires
   useEffect(() => {
-    const newStars = [...Array(25)].map(() => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      collected: false
-    }));
-    setStars(newStars);
+    // Initialiser les étoiles
+    const generateStars = () => {
+      return Array(10).fill().map(() => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        speed: 1 + Math.random() * 2
+      }));
+    };
+    setStars(generateStars());
+
+    // Gestionnaire d'événements clavier
+    const handleKeyDown = (e) => {
+      setKeys(prev => ({ ...prev, [e.key]: true }));
+    };
+    const handleKeyUp = (e) => {
+      setKeys(prev => ({ ...prev, [e.key]: false }));
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, []);
 
   useEffect(() => {
-    const moveImage = () => {
+    if (isExploded) return;
+
+    const gameLoop = setInterval(() => {
+      // Mouvement du joueur
       setPosition(prev => {
-        let newX = prev.x + direction.dx;
-        let newY = prev.y + direction.dy;
-        let newDx = direction.dx;
-        let newDy = direction.dy;
-
-        // Rebondir sur les bords
-        if (newX <= 0 || newX >= window.innerWidth - size) {
-          newDx = -direction.dx;
-        }
-        if (newY <= 0 || newY >= window.innerHeight - size) {
-          newDy = -direction.dy;
-        }
-
-        // Vérifier la collision avec les étoiles
-        stars.forEach((star, index) => {
-          if (!star.collected) {
-            const distance = Math.sqrt(
-              Math.pow(newX + size/2 - star.x, 2) + 
-              Math.pow(newY + size/2 - star.y, 2)
-            );
-            
-            if (distance < size/2) {
-              const newStars = [...stars];
-              newStars[index].collected = true;
-              setStars(newStars);
-              setSize(prevSize => {
-                const newSize = prevSize + 10;
-                if (newSize > 200) { // Taille maximale avant explosion
-                  setIsExploded(true);
-                  setTimeout(() => {
-                    setSize(32);
-                    setIsExploded(false);
-                    setStars(stars.map(s => ({...s, collected: false})));
-                  }, 1000);
-                }
-                return newSize;
-              });
-            }
-          }
-        });
-
-        setDirection({ dx: newDx, dy: newDy });
-        return { 
-          x: Math.max(0, Math.min(window.innerWidth - size, newX)),
-          y: Math.max(0, Math.min(window.innerHeight - size, newY))
+        const newPos = { ...prev };
+        if (keys.ArrowUp) newPos.y -= speed;
+        if (keys.ArrowDown) newPos.y += speed;
+        if (keys.ArrowLeft) newPos.x -= speed;
+        if (keys.ArrowRight) newPos.x += speed;
+        
+        return {
+          x: Math.max(0, Math.min(window.innerWidth - size, newPos.x)),
+          y: Math.max(0, Math.min(window.innerHeight - size, newPos.y))
         };
       });
-    };
 
-    const interval = setInterval(moveImage, 16);
-    return () => clearInterval(interval);
-  }, [direction, size, stars]);
+      // Collision avec les étoiles
+      setStars(prevStars => {
+        return prevStars.map(star => {
+          const dx = position.x - star.x;
+          const dy = position.y - star.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < size/2 + 10) {
+            setScore(prev => prev + 1);
+            setSize(prev => {
+              const newSize = prev + 2;
+              if (newSize > 200) setIsExploded(true);
+              return newSize;
+            });
+            return {
+              x: Math.random() * window.innerWidth,
+              y: Math.random() * window.innerHeight,
+              speed: 1 + Math.random() * 2
+            };
+          }
+
+          // Mouvement d'évitement des étoiles
+          if (distance < 150) {
+            const angle = Math.atan2(dy, dx);
+            return {
+              ...star,
+              x: star.x - Math.cos(angle) * star.speed,
+              y: star.y - Math.sin(angle) * star.speed
+            };
+          }
+
+          return star;
+        });
+      });
+    }, 16);
+
+    return () => clearInterval(gameLoop);
+  }, [keys, position, size, isExploded]);
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black overflow-hidden">
-      {/* Image flottante style DVD */}
-      <img
-        src={profileData.image}
-        alt={profileData.name}
-        className={`absolute rounded-full object-cover z-20 transition-all duration-75 ${
-          isExploded ? 'animate-spin opacity-0 scale-150' : ''
-        }`}
-        style={{
-          transform: `translate(${position.x}px, ${position.y}px)`,
-          width: `${size}px`,
-          height: `${size}px`,
-          boxShadow: '0 0 20px rgba(139,92,246,0.5)'
-        }}
-      />
+      {/* Score */}
+      <div className="absolute top-4 left-4 text-2xl text-white z-30">
+        Score: {score}
+      </div>
 
-      {/* Étoiles collectables */}
+      {/* Image contrôlable */}
+      {!isExploded ? (
+        <img
+          src={profileData.image}
+          alt={profileData.name}
+          className="absolute rounded-full object-cover z-20 transition-all duration-75"
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            transform: `translate(${position.x}px, ${position.y}px)`,
+            boxShadow: '0 0 20px rgba(139,92,246,0.5)'
+          }}
+        />
+      ) : (
+        <div className="absolute text-4xl text-red-500 font-bold z-30"
+             style={{
+               transform: `translate(${position.x}px, ${position.y}px)`,
+             }}>
+          💥 BOOM!
+        </div>
+      )}
+
+      {/* Étoiles */}
       {stars.map((star, i) => (
-        !star.collected && (
-          <div
-            key={i}
-            className="absolute w-4 h-4 text-yellow-300"
-            style={{
-              top: star.y,
-              left: star.x,
-            }}
-          >
-            ★
-          </div>
-        )
+        <div
+          key={i}
+          className="absolute w-3 h-3 bg-yellow-300 rounded-full animate-pulse"
+          style={{
+            transform: `translate(${star.x}px, ${star.y}px)`,
+            boxShadow: '0 0 10px rgba(255,255,0,0.8)'
+          }}
+        />
       ))}
 
       <div className="flex flex-col items-center justify-center min-h-screen space-y-8 relative z-10">
@@ -123,7 +152,6 @@ const Home = () => {
           onMouseLeave={() => setIsHovered(false)}
         >
           <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-8 shadow-[0_0_50px_rgba(139,92,246,0.3)] hover:shadow-[0_0_70px_rgba(139,92,246,0.5)] transition-all duration-500">
-            {/* Informations */}
             <div className="text-center space-y-4">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {profileData.name}
@@ -131,7 +159,6 @@ const Home = () => {
               <p className="text-xl font-medium text-gray-300">{profileData.title}</p>
               <p className="text-gray-400 leading-relaxed">{profileData.description}</p>
 
-              {/* Bouton CTA */}
               <button className="mt-6 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-semibold text-white transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30 active:scale-95">
                 Voir mon portfolio
               </button>
